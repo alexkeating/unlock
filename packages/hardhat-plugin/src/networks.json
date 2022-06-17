@@ -98,7 +98,7 @@
     "unlockAddress": "0x1bc53f4303c711cc693F6Ec3477B83703DcB317f",
     "serializerAddress": "0x646E373EAf8a4AEc31Bf62B7Fd6fB59296d6CdA9",
     "id": 100,
-    "name": "xDai",
+    "name": "Gnosis Chain",
     "blockTime": 5000,
     "requiredConfirmations": 12,
     "subgraphURI": "https://api.thegraph.com/subgraphs/name/unlock-protocol/xdai",
@@ -157,5 +157,27 @@
     "unlockAppUrl": "http://0.0.0.0:3000",
     "subgraphURI": "http://localhost:8000/subgraphs/name/unlock-protocol/unlock",
     "serializerAddress": "0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1"
+  },
+  "80001": {
+    "unlockAddress": "0x1FF7e338d5E582138C46044dc238543Ce555C963",
+    "id": 80001,
+    "name": "Mumbai (Polygon)",
+    "blockTime": 1000,
+    "subgraphURI": "https://api.thegraph.com/subgraphs/name/unlock-protocol/mumbai",
+    "explorer": {
+      "name": "PolygonScan (Mumbai)",
+      "urls": {}
+    },
+    "requiredConfirmations": 12,
+    "erc20": null,
+    "baseCurrencySymbol": "MATIC",
+    "locksmithUri": "https://locksmith.unlock-protocol.com",
+    "nativeCurrency": {
+      "name": "MATIC",
+      "symbol": "MATIC",
+      "decimals": 18
+    },
+    "startBlock": 26584912,
+    "previousDeploys": []
   }
 }

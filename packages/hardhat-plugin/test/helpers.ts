@@ -1,17 +1,10 @@
 /* eslint-disable prefer-arrow-callback, func-names */
 import { resetHardhatContext } from 'hardhat/plugins-testing'
-import { HardhatRuntimeEnvironment } from 'hardhat/types'
 import { assert } from 'chai'
 
 import path from 'path'
 
 import '../src/type-extensions'
-
-declare module 'mocha' {
-  interface Context {
-    hre: HardhatRuntimeEnvironment
-  }
-}
 
 /**
  * Takes in a function and checks for error
@@ -20,7 +13,7 @@ declare module 'mocha' {
  * @param {string} message - Optional message to match with error message
  */
 export async function expectThrowsAsync<T>(
-  method: (...params: T[]) => Promise<unknown>,
+  method: (..._params: T[]) => Promise<unknown>,
   params: T[],
   message?: string
 ): Promise<any> {
