@@ -21,7 +21,7 @@ interface Props {
   state: CheckoutState
 }
 
-function AnimationContent({ status }: Mint) {
+function AnimationContent({ status }: { status: Mint['status'] }) {
   switch (status) {
     case 'PROCESSING':
       return (
@@ -52,11 +52,12 @@ export function Minting({ injectedProvider, send, onClose, state }: Props) {
   const config = useConfig()
   const { mint, lock } = state.context
   const processing = mint?.status === 'PROCESSING'
+  const status = mint?.status
 
   useEffect(() => {
     async function waitForConfirmation() {
       try {
-        if (!mint?.transactionHash && mint?.status !== 'PROCESSING') {
+        if (mint?.status !== 'PROCESSING') {
           return
         }
         const network = config.networks[lock!.network]
@@ -68,6 +69,7 @@ export function Minting({ injectedProvider, send, onClose, state }: Props) {
           send({
             type: 'CONFIRM_MINT',
             status: 'FINISHED',
+            transactionHash: mint.transactionHash!,
           })
         }
       } catch (error) {
@@ -87,7 +89,7 @@ export function Minting({ injectedProvider, send, onClose, state }: Props) {
     <div>
       <main className="p-6 overflow-auto h-64 sm:h-72">
         <div className="space-y-6 justify-center grid">
-          <AnimationContent {...mint!} />
+          {status && <AnimationContent status={status} />}
           <a
             href={config.networks[lock!.network].explorer.urls.transaction(
               mint?.transactionHash
