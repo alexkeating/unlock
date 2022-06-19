@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from 'react'
+import { Contract } from 'ethers'
 import styled from 'styled-components'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { Lock } from './Lock'
@@ -25,6 +26,7 @@ import { ConfigContext } from '../../../utils/withConfig'
 import { useAdvancedCheckout } from '../../../hooks/useAdvancedCheckout'
 import { ToastHelper } from '../../helpers/toast.helper'
 import Duration from '../../helpers/Duration'
+import { selectProvider } from '../../hooks/useAuthenticate'
 
 interface CryptoCheckoutProps {
   emitTransactionInfo: (info: TransactionInfo) => void
@@ -56,6 +58,7 @@ export const CryptoCheckout = ({
   emitUserInfo,
 }: CryptoCheckoutProps) => {
   const { networks, services, recaptchaKey } = useContext(ConfigContext)
+  const config = useContext(ConfigContext)
   const storageService = new StorageService(services.storage.host)
   const [loading, setLoading] = useState(false)
   const [recaptchaValue, setRecaptchaValue] = useState<string | null>('')
@@ -247,6 +250,31 @@ export const CryptoCheckout = ({
         let data
 
         const recurringPayments = nbPayments
+
+        if (paywallConfig.superfluid) {
+          // get contract address from lock
+          // then call create flow on the superfluid token
+          // with the receiver being the lock address
+          const provider = selectProvider(config)
+          const abi = [
+            'function requiredBlockConfirmations() view returns (uint256)',
+            'function createFlow(ISuperfluidToken token, address receiver, int96 flowRate, bytes calldata ctx) external returns(bytes memory newCtx)',
+          ]
+          // Contract address is wrong
+          // needs to be the one used in the framework
+          // should have a mapping of superfluid networks
+          const tokenContract = new Contract(
+            lock.currencyContractAddress,
+            abi,
+            provider
+          )
+          await tokenContract.createFlow(
+            lock.currencyContractAddress,
+            lock.address,
+            lock.keyPrice / lock.expirationDuration
+          ) // Need to work on division fo large numbers
+          return
+        }
 
         if (useCaptcha) {
           // get the secret from locksmith!
