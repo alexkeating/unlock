@@ -1,7 +1,8 @@
 import React, { useContext, useState, useEffect, useRef } from 'react'
-import { Contract } from 'ethers'
+import { BigNumber } from 'ethers'
 import styled from 'styled-components'
 import ReCAPTCHA from 'react-google-recaptcha'
+import { Framework } from '@superfluid-finance/sdk-core'
 import { Lock } from './Lock'
 import { CheckoutCustomRecipient } from './CheckoutCustomRecipient'
 import { AuthenticationContext } from '../../../contexts/AuthenticationContext'
@@ -26,7 +27,7 @@ import { ConfigContext } from '../../../utils/withConfig'
 import { useAdvancedCheckout } from '../../../hooks/useAdvancedCheckout'
 import { ToastHelper } from '../../helpers/toast.helper'
 import Duration from '../../helpers/Duration'
-import { selectProvider } from '../../hooks/useAuthenticate'
+import { selectProvider } from '../../../hooks/useAuthenticate'
 
 interface CryptoCheckoutProps {
   emitTransactionInfo: (info: TransactionInfo) => void
@@ -256,23 +257,17 @@ export const CryptoCheckout = ({
           // then call create flow on the superfluid token
           // with the receiver being the lock address
           const provider = selectProvider(config)
-          const abi = [
-            'function requiredBlockConfirmations() view returns (uint256)',
-            'function createFlow(ISuperfluidToken token, address receiver, int96 flowRate, bytes calldata ctx) external returns(bytes memory newCtx)',
-          ]
-          // Contract address is wrong
-          // needs to be the one used in the framework
-          // should have a mapping of superfluid networks
-          const tokenContract = new Contract(
-            lock.currencyContractAddress,
-            abi,
-            provider
-          )
-          await tokenContract.createFlow(
-            lock.currencyContractAddress,
-            lock.address,
-            lock.keyPrice / lock.expirationDuration
-          ) // Need to work on division fo large numbers
+          const sf = await Framework.create({
+            chainId: paywallConfig.network,
+            provider: provider,
+          })
+          const expiration = BigNumber.from(lock.expirationDuration)
+          sf.cfaV1.createFlow({
+            sender: provider.address,
+            receiver: lock.address,
+            superToken: lock.currencyContractAddress,
+            flowRate: BigNumber.from(lock.keyPrice).div(expiration).toString(),
+          })
           return
         }
 
