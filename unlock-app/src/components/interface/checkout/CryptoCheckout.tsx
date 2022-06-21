@@ -253,9 +253,6 @@ export const CryptoCheckout = ({
         const recurringPayments = nbPayments
 
         if (paywallConfig.superfluid) {
-          // get contract address from lock
-          // then call create flow on the superfluid token
-          // with the receiver being the lock address
           const provider = selectProvider(config)
           const sf = await Framework.create({
             chainId: paywallConfig.network,
