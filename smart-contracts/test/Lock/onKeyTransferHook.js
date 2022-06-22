@@ -1,11 +1,9 @@
-const { reverts } = require('../helpers/errors')
+const { reverts, purchaseKey, ADDRESS_ZERO } = require('../helpers')
 const deployLocks = require('../helpers/deployLocks')
-const BigNumber = require('bignumber.js')
 
 const unlockContract = artifacts.require('Unlock.sol')
 const TestEventHooks = artifacts.require('TestEventHooks.sol')
 const getContractInstance = require('../helpers/truffle-artifacts')
-const { ADDRESS_ZERO } = require('../helpers/constants')
 const { assert } = require('chai')
 
 let lock
@@ -37,19 +35,7 @@ contract('Lock / onKeyTransfer hook', (accounts) => {
   })
 
   beforeEach(async () => {
-    const tx = await lock.purchase(
-      [],
-      [keyOwner],
-      [ADDRESS_ZERO],
-      [ADDRESS_ZERO],
-      [[]],
-      {
-        from: accounts[0],
-        value: keyPrice,
-      }
-    )
-    const { args } = tx.logs.find((v) => v.event === 'Transfer')
-    tokenId = args.tokenId
+    ;({ tokenId } = await purchaseKey(lock, keyOwner))
   })
 
   it('is not fired when a key is created', async () => {
@@ -81,14 +67,14 @@ contract('Lock / onKeyTransfer hook', (accounts) => {
     assert.equal(args.time, expirationTs)
   })
 
-  it('pass correctly operator when different from key owner', async () => {
+  it('not fired when a key manager is set', async () => {
     await lock.setKeyManagerOf(tokenId, accounts[6], { from: keyOwner })
-    await lock.transferFrom(keyOwner, accounts[3], tokenId, {
-      from: accounts[6],
-    })
-    const args = (await testEventHooks.getPastEvents('OnKeyTransfer'))[0]
-      .returnValues
-    assert.equal(args.operator, accounts[6])
+    await reverts(
+      lock.transferFrom(keyOwner, accounts[3], tokenId, {
+        from: accounts[6],
+      }),
+      'UNAUTHORIZED'
+    )
   })
 
   it('cannot set the hook to a non-contract address', async () => {

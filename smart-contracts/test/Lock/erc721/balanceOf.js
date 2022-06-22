@@ -1,9 +1,8 @@
 const BigNumber = require('bignumber.js')
 const { time } = require('@openzeppelin/test-helpers')
 
-const { reverts } = require('../../helpers/errors')
+const { reverts, ADDRESS_ZERO } = require('../../helpers')
 const deployLocks = require('../../helpers/deployLocks')
-const { ADDRESS_ZERO } = require('../../helpers/constants')
 
 const unlockContract = artifacts.require('Unlock.sol')
 const getContractInstance = require('../../helpers/truffle-artifacts')
@@ -19,11 +18,11 @@ contract('Lock / erc721 / balanceOf', (accounts) => {
   })
 
   it('should fail if the user address is 0', async () => {
-    await reverts(locks.FIRST.balanceOf.call(ADDRESS_ZERO), 'INVALID_ADDRESS')
+    await reverts(locks.FIRST.balanceOf(ADDRESS_ZERO), 'INVALID_ADDRESS')
   })
 
   it('should return 0 if the user has no key', async () => {
-    const balance = new BigNumber(await locks.FIRST.balanceOf.call(accounts[3]))
+    const balance = new BigNumber(await locks.FIRST.balanceOf(accounts[3]))
     assert.equal(balance.toFixed(), 0)
   })
 
@@ -39,7 +38,7 @@ contract('Lock / erc721 / balanceOf', (accounts) => {
         from: accounts[1],
       }
     )
-    const balance = new BigNumber(await locks.FIRST.balanceOf.call(accounts[1]))
+    const balance = new BigNumber(await locks.FIRST.balanceOf(accounts[1]))
     assert.equal(balance.toFixed(), 3)
   })
 
@@ -66,7 +65,7 @@ contract('Lock / erc721 / balanceOf', (accounts) => {
     )
     await time.increaseTo(expirationTs.toNumber() + 10)
 
-    assert.equal((await locks.FIRST.balanceOf.call(accounts[1])).toNumber(), 0)
+    assert.equal((await locks.FIRST.balanceOf(accounts[1])).toNumber(), 0)
 
     // renew one
     await locks.FIRST.extend(0, tokenIds[0], ADDRESS_ZERO, [], {
@@ -74,7 +73,7 @@ contract('Lock / erc721 / balanceOf', (accounts) => {
       from: accounts[1],
     })
 
-    assert.equal((await locks.FIRST.balanceOf.call(accounts[1])).toNumber(), 1)
+    assert.equal((await locks.FIRST.balanceOf(accounts[1])).toNumber(), 1)
   })
 
   it('should return correct number after key transfers', async () => {
@@ -89,14 +88,14 @@ contract('Lock / erc721 / balanceOf', (accounts) => {
         from: accounts[6],
       }
     )
-    let tokenId = await locks.FIRST.tokenOfOwnerByIndex.call(accounts[6], 0)
+    let tokenId = await locks.FIRST.tokenOfOwnerByIndex(accounts[6], 0)
     assert.equal(accounts[6], await locks.FIRST.ownerOf(tokenId))
-    assert.equal((await locks.FIRST.balanceOf.call(accounts[6])).toNumber(), 3)
+    assert.equal((await locks.FIRST.balanceOf(accounts[6])).toNumber(), 3)
     await locks.FIRST.transferFrom(accounts[6], accounts[5], tokenId, {
       from: accounts[6],
     })
-    let balanceOf6 = await locks.FIRST.balanceOf.call(accounts[6])
-    let balanceOf5 = await locks.FIRST.balanceOf.call(accounts[5])
+    let balanceOf6 = await locks.FIRST.balanceOf(accounts[6])
+    let balanceOf5 = await locks.FIRST.balanceOf(accounts[5])
     assert.equal(balanceOf6.toNumber(), 2)
     assert.equal(balanceOf5.toNumber(), 1)
   })

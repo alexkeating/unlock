@@ -1,6 +1,10 @@
-const { reverts } = require('../../helpers/errors')
 const deployLocks = require('../../helpers/deployLocks')
-const { ADDRESS_ZERO } = require('../../helpers/constants')
+const {
+  reverts,
+  ADDRESS_ZERO,
+  purchaseKeys,
+  purchaseKey,
+} = require('../../helpers')
 const unlockContract = artifacts.require('Unlock.sol')
 const getContractInstance = require('../../helpers/truffle-artifacts')
 
@@ -14,29 +18,13 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
     unlock = await getContractInstance(unlockContract)
   })
 
-  const from = accounts[0]
   keyOwners = [accounts[1], accounts[2], accounts[3], accounts[4]]
 
   beforeEach(async () => {
     locks = await deployLocks(unlock, accounts[0])
     await locks.FIRST.updateTransferFee(0) // disable the transfer fee for this test
     await locks['SINGLE KEY'].updateTransferFee(0) // disable the transfer fee for this test
-
-    const tx = await locks.FIRST.purchase(
-      [],
-      keyOwners,
-      keyOwners.map(() => ADDRESS_ZERO),
-      keyOwners.map(() => ADDRESS_ZERO),
-      keyOwners.map(() => []),
-      {
-        value: web3.utils.toWei(`${0.01 * keyOwners.length}`, 'ether'),
-        from,
-      }
-    )
-
-    tokenIds = tx.logs
-      .filter((v) => v.event === 'Transfer')
-      .map(({ args }) => args.tokenId)
+    ;({ tokenIds } = await purchaseKeys(locks.FIRST, keyOwners.length))
   })
 
   // / @dev Throws unless `msg.sender` is the current owner, an authorized
@@ -61,13 +49,13 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
       )
     })
 
-    it('should only allow key manager, approved or owner to transfer', async () => {
+    it('should only allow approved or owner to transfer', async () => {
       // testing an id mismatch
       await reverts(
         locks.FIRST.transferFrom(keyOwners[0], accounts[9], tokenIds[0], {
           from: keyOwners[5],
         }),
-        'ONLY_KEY_MANAGER_OR_APPROVED'
+        'UNAUTHORIZED'
       )
       // testing a mismatched _from address
       await reverts(
@@ -112,6 +100,21 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
       })
     })
 
+    describe('when the key owner is the sender and a key manager is set', async () => {
+      it('should revert if a key manager is set', async () => {
+        const keyManager = accounts[8]
+        await locks.FIRST.setKeyManagerOf(tokenIds[0], keyManager, {
+          from: keyOwners[0],
+        })
+        await reverts(
+          locks.FIRST.transferFrom(keyOwners[0], accounts[9], tokenIds[0], {
+            from: keyManager,
+          }),
+          'UNAUTHORIZED'
+        )
+      })
+    })
+
     describe('when the key owner is not the sender', async () => {
       let accountApproved
 
@@ -127,7 +130,7 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
           locks.FIRST.transferFrom(keyOwners[0], accountApproved, tokenIds[2], {
             from: accountApproved,
           }),
-          'ONLY_KEY_MANAGER_OR_APPROVED'
+          'UNAUTHORIZED'
         )
       })
 
@@ -136,7 +139,7 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
           from: accountApproved,
         })
         assert.equal(await locks.FIRST.ownerOf(tokenIds[0]), accounts[9])
-        assert.equal(await locks.FIRST.balanceOf.call(accounts[9]), 1)
+        assert.equal(await locks.FIRST.balanceOf(accounts[9]), 1)
       })
 
       it('approval should be cleared after a transfer', async () => {
@@ -155,11 +158,13 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
           from: keyOwners[0],
         })
       })
-      it('should reset the key manager', async () => {
-        await locks.FIRST.transferFrom(keyOwners[0], accounts[9], tokenIds[0], {
-          from: keyManager,
-        })
-        assert.equal(await locks.FIRST.keyManagerOf(tokenIds[0]), ADDRESS_ZERO)
+      it('should revert if a key manager is set', async () => {
+        await reverts(
+          locks.FIRST.transferFrom(keyOwners[0], accounts[9], tokenIds[0], {
+            from: keyManager,
+          }),
+          'UNAUTHORIZED'
+        )
       })
     })
 
@@ -194,42 +199,16 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
     describe('when the lock is sold out', () => {
       it('should still allow the transfer of keys', async () => {
         // first we create a lock with only 1 key
-        const tx = await locks['SINGLE KEY'].purchase(
-          [],
-          [keyOwners[0]],
-          [ADDRESS_ZERO],
-          [ADDRESS_ZERO],
-          [[]],
-          {
-            value: web3.utils.toWei('0.01', 'ether'),
-            from,
-          }
-        )
-
-        const { args } = tx.logs.find((v) => v.event === 'Transfer')
-        const { tokenId } = args
+        const { tokenId } = await purchaseKey(locks['SINGLE KEY'], keyOwners[0])
 
         // confirm that the lock is sold out
         await reverts(
-          locks['SINGLE KEY'].purchase(
-            [],
-            [accounts[8]],
-            [ADDRESS_ZERO],
-            [ADDRESS_ZERO],
-            [[]],
-            {
-              value: web3.utils.toWei('0.01', 'ether'),
-              from: accounts[8],
-            }
-          ),
+          purchaseKey(locks['SINGLE KEY'], keyOwners[0]),
           'LOCK_SOLD_OUT'
         )
 
         // check ownership
-        assert.equal(
-          await locks['SINGLE KEY'].ownerOf.call(tokenId),
-          keyOwners[0]
-        )
+        assert.equal(await locks['SINGLE KEY'].ownerOf(tokenId), keyOwners[0])
 
         // transfer
         await locks['SINGLE KEY'].transferFrom(
@@ -241,10 +220,7 @@ contract('Lock / erc721 / transferFrom', (accounts) => {
           }
         )
 
-        assert.equal(
-          await locks['SINGLE KEY'].ownerOf.call(tokenId),
-          accounts[9]
-        )
+        assert.equal(await locks['SINGLE KEY'].ownerOf(tokenId), accounts[9])
       })
     })
   })

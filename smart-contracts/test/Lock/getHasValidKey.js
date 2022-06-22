@@ -2,7 +2,7 @@ const deployLocks = require('../helpers/deployLocks')
 
 const unlockContract = artifacts.require('Unlock.sol')
 const getContractInstance = require('../helpers/truffle-artifacts')
-const { ADDRESS_ZERO } = require('../helpers/constants')
+const { ADDRESS_ZERO, purchaseKey } = require('../helpers')
 
 let unlock
 let locks
@@ -21,31 +21,18 @@ contract('Lock / getHasValidKey', (accounts) => {
   })
 
   it('should be false before purchasing a key', async () => {
-    const isValid = await lock.getHasValidKey.call(keyOwner)
+    const isValid = await lock.getHasValidKey(keyOwner)
     assert.equal(isValid, false)
   })
 
   describe('after purchase', () => {
     beforeEach(async () => {
-      const tx = await lock.purchase(
-        [],
-        [keyOwner],
-        [ADDRESS_ZERO],
-        [ADDRESS_ZERO],
-        [[]],
-        {
-          value: web3.utils.toWei('0.01', 'ether'),
-        }
-      )
-      const tokenIds = tx.logs
-        .filter((v) => v.event === 'Transfer')
-        .map(({ args }) => args.tokenId)
-      tokenId = tokenIds[0]
+      ;({ tokenId } = await purchaseKey(lock, keyOwner))
     })
 
     it('should be true', async () => {
       assert.equal((await lock.balanceOf(keyOwner)).toNumber(), 1)
-      const isValid = await lock.getHasValidKey.call(keyOwner)
+      const isValid = await lock.getHasValidKey(keyOwner)
       assert.equal(isValid, true)
     })
 
@@ -57,7 +44,7 @@ contract('Lock / getHasValidKey', (accounts) => {
       })
 
       it('should be false', async () => {
-        const isValid = await lock.getHasValidKey.call(keyOwner)
+        const isValid = await lock.getHasValidKey(keyOwner)
         assert.equal(isValid, false)
       })
     })
@@ -68,7 +55,7 @@ contract('Lock / getHasValidKey', (accounts) => {
     keyOwner = accounts[6]
     beforeEach(async () => {
       lock = locks.SECOND
-      await locks.SECOND.setMaxKeysPerAddress(10)
+      await lock.setMaxKeysPerAddress(10)
       const tx = await lock.purchase(
         [],
         [keyOwner, keyOwner, keyOwner],
@@ -85,7 +72,7 @@ contract('Lock / getHasValidKey', (accounts) => {
     })
 
     it('should be true', async () => {
-      const isValid = await lock.getHasValidKey.call(keyOwner)
+      const isValid = await lock.getHasValidKey(keyOwner)
       assert.equal(isValid, true)
     })
 
@@ -97,9 +84,9 @@ contract('Lock / getHasValidKey', (accounts) => {
       })
 
       it('should still be true', async () => {
-        const isValid = await lock.getHasValidKey.call(keyOwner)
+        const isValid = await lock.getHasValidKey(keyOwner)
         assert.equal(isValid, true)
-        assert.equal(await lock.getHasValidKey.call(accounts[5]), true)
+        assert.equal(await lock.getHasValidKey(accounts[5]), true)
       })
     })
 
@@ -111,7 +98,7 @@ contract('Lock / getHasValidKey', (accounts) => {
       })
 
       it('should be true', async () => {
-        const isValid = await lock.getHasValidKey.call(keyOwner)
+        const isValid = await lock.getHasValidKey(keyOwner)
         assert.equal(isValid, true)
       })
     })
@@ -130,7 +117,7 @@ contract('Lock / getHasValidKey', (accounts) => {
       it('should be false', async () => {
         assert.equal((await lock.balanceOf(keyOwner)).toNumber(), 0)
         assert.equal((await lock.balanceOf(accounts[5])).toNumber(), 3)
-        const isValid = await lock.getHasValidKey.call(keyOwner)
+        const isValid = await lock.getHasValidKey(keyOwner)
         assert.equal(isValid, false)
       })
     })

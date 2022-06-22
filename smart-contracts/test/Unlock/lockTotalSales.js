@@ -4,7 +4,7 @@ const deployLocks = require('../helpers/deployLocks')
 
 const unlockContract = artifacts.require('Unlock.sol')
 const getContractInstance = require('../helpers/truffle-artifacts')
-const { ADDRESS_ZERO } = require('../helpers/constants')
+const { purchaseKey, purchaseKeys } = require('../helpers')
 
 let unlock
 let locks
@@ -21,29 +21,19 @@ contract('Unlock / lockTotalSales', (accounts) => {
 
   it('total sales defaults to 0', async () => {
     const totalSales = new BigNumber(
-      (await unlock.locks.call(lock.address)).totalSales
+      (await unlock.locks(lock.address)).totalSales
     )
     assert.equal(totalSales.toFixed(), 0)
   })
 
   describe('buy 1 key', () => {
     before(async () => {
-      await lock.purchase(
-        [],
-        [accounts[0]],
-        [ADDRESS_ZERO],
-        [ADDRESS_ZERO],
-        [[]],
-        {
-          value: price,
-          from: accounts[0],
-        }
-      )
+      await purchaseKey(lock)
     })
 
     it('total sales includes the purchase', async () => {
       const totalSales = new BigNumber(
-        (await unlock.locks.call(lock.address)).totalSales
+        (await unlock.locks(lock.address)).totalSales
       )
       assert.equal(totalSales.toFixed(), price.toFixed())
     })
@@ -51,24 +41,12 @@ contract('Unlock / lockTotalSales', (accounts) => {
 
   describe('buy multiple keys', () => {
     before(async () => {
-      for (let i = 1; i < 5; i++) {
-        await lock.purchase(
-          [],
-          [accounts[i]],
-          [ADDRESS_ZERO],
-          [ADDRESS_ZERO],
-          [[]],
-          {
-            value: price,
-            from: accounts[i],
-          }
-        )
-      }
+      await purchaseKeys(lock, 4)
     })
 
     it('total sales incluse all purchases', async () => {
       const totalSales = new BigNumber(
-        (await unlock.locks.call(lock.address)).totalSales
+        (await unlock.locks(lock.address)).totalSales
       )
       assert.equal(totalSales.toFixed(), price.times(5).toFixed())
     })

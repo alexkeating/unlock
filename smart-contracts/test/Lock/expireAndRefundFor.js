@@ -1,8 +1,7 @@
 const BigNumber = require('bignumber.js')
 
-const { reverts } = require('../helpers/errors')
 const deployLocks = require('../helpers/deployLocks')
-const { ADDRESS_ZERO } = require('../helpers/constants')
+const { purchaseKeys, reverts } = require('../helpers')
 
 const unlockContract = artifacts.require('Unlock.sol')
 const getContractInstance = require('../helpers/truffle-artifacts')
@@ -25,21 +24,7 @@ contract('Lock / expireAndRefundFor', (accounts) => {
 
   before(async () => {
     lock = locks.SECOND
-    const tx = await lock.purchase(
-      [],
-      keyOwners,
-      keyOwners.map(() => ADDRESS_ZERO),
-      keyOwners.map(() => ADDRESS_ZERO),
-      keyOwners.map(() => []),
-      {
-        value: (keyPrice * keyOwners.length).toFixed(),
-        from: keyOwners[1],
-      }
-    )
-
-    tokenIds = tx.logs
-      .filter((v) => v.event === 'Transfer')
-      .map(({ args }) => args.tokenId)
+    ;({ tokenIds } = await purchaseKeys(lock, keyOwners.length))
   })
 
   describe('should cancel and refund when enough time remains', () => {
@@ -69,7 +54,7 @@ contract('Lock / expireAndRefundFor', (accounts) => {
     })
 
     it('should make the key no longer valid (i.e. expired)', async () => {
-      const isValid = await lock.getHasValidKey.call(keyOwners[0])
+      const isValid = await lock.getHasValidKey(keyOwners[0])
       assert.equal(isValid, false)
     })
 
@@ -119,7 +104,7 @@ contract('Lock / expireAndRefundFor', (accounts) => {
     })
 
     it('the Lock owner withdraws too much funds', async () => {
-      await lock.withdraw(await lock.tokenAddress.call(), 0, {
+      await lock.withdraw(await lock.tokenAddress(), 0, {
         from: lockCreator,
       })
       await reverts(
