@@ -1,4 +1,5 @@
 import React, { useContext, useState, useEffect, useRef } from 'react'
+import { ethers } from 'ethers'
 import { BigNumber } from 'ethers'
 import styled from 'styled-components'
 import ReCAPTCHA from 'react-google-recaptcha'
@@ -254,17 +255,27 @@ export const CryptoCheckout = ({
 
         if (paywallConfig.superfluid) {
           const provider = selectProvider(config)
+          const web3Provider = new ethers.providers.Web3Provider(provider)
           const sf = await Framework.create({
-            chainId: paywallConfig.network,
-            provider: provider,
+            chainId: lock.network,
+            provider: web3Provider,
           })
           const expiration = BigNumber.from(lock.expirationDuration)
-          sf.cfaV1.createFlow({
+          const flowRate = BigNumber.from(lock.keyPrice)
+            .mul('1000000000000000000')
+            .div(expiration)
+            .toString()
+          const op = sf.cfaV1.createFlow({
             sender: provider.address,
             receiver: lock.address,
             superToken: lock.currencyContractAddress,
-            flowRate: BigNumber.from(lock.keyPrice).div(expiration).toString(),
+            flowRate: flowRate,
           })
+          const signer = web3Provider.getSigner()
+          await op.exec(signer)
+          setKeyExpiration(Infinity) // We should actually get the real expiration
+          setPurchasePending(false)
+          setTransactionPending('')
           return
         }
 
