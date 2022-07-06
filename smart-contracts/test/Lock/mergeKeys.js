@@ -1,26 +1,18 @@
+const { ethers } = require('hardhat')
 const BigNumber = require('bignumber.js')
 const { assert } = require('chai')
 
-const deployLocks = require('../helpers/deployLocks')
-const { purchaseKeys, reverts } = require('../helpers')
-
-const unlockContract = artifacts.require('Unlock.sol')
-const getContractInstance = require('../helpers/truffle-artifacts')
-
-let unlock
-let locks
-let tokenIds
+const { purchaseKeys, reverts, deployLock } = require('../helpers')
 
 contract('Lock / mergeKeys', (accounts) => {
+  let tokenIds
   let lockCreator = accounts[0]
   let keyOwner = accounts[1]
   let keyOwner2 = accounts[2]
   let lock
 
   beforeEach(async () => {
-    unlock = await getContractInstance(unlockContract)
-    locks = await deployLocks(unlock, accounts[0])
-    lock = locks.FIRST
+    lock = await deployLock()
     ;({ tokenIds } = await purchaseKeys(lock, 2))
   })
 
@@ -91,7 +83,7 @@ contract('Lock / mergeKeys', (accounts) => {
         await lock.keyExpirationTimestampFor(tokenIds[1]),
       ]
 
-      const now = (await web3.eth.getBlock('latest')).timestamp
+      const { timestamp: now } = await ethers.provider.getBlock('latest')
       const remaining = expTs[0] - now - 1
 
       await lock.mergeKeys(tokenIds[0], tokenIds[1], remaining, {
@@ -139,19 +131,19 @@ contract('Lock / mergeKeys', (accounts) => {
 
     it('should fail if time is not enough', async () => {
       const remaining = await lock.keyExpirationTimestampFor(tokenIds[0])
-      const blockTs = (await web3.eth.getBlock('latest')).timestamp
+      const { timestamp: now } = await ethers.provider.getBlock('latest')
       // remove some time
       await lock.shareKey(
         accounts[8],
         tokenIds[0],
-        remaining.toNumber() - blockTs - 100,
+        remaining.toNumber() - now - 100,
         { from: keyOwner }
       )
 
       assert.equal(
         new BigNumber(
           await lock.keyExpirationTimestampFor(tokenIds[0])
-        ).toNumber() - blockTs,
+        ).toNumber() - now,
         100
       )
       assert.equal(await lock.isValidKey(tokenIds[0]), true)

@@ -1,13 +1,8 @@
+const { ethers } = require('hardhat')
 const BigNumber = require('bignumber.js')
 
 const { time } = require('@openzeppelin/test-helpers')
-const deployLocks = require('../helpers/deployLocks')
-
-const unlockContract = artifacts.require('Unlock.sol')
-const getContractInstance = require('../helpers/truffle-artifacts')
-const { reverts, purchaseKey } = require('../helpers')
-
-let unlock
+const { deployLock, reverts, purchaseKey } = require('../helpers')
 
 contract('Lock / transferFee', (accounts) => {
   let lock
@@ -15,11 +10,9 @@ contract('Lock / transferFee', (accounts) => {
   const denominator = 10000
   let tokenId
 
+  // TODO test using an ERC20 priced lock as well
   before(async () => {
-    unlock = await getContractInstance(unlockContract)
-    // TODO test using an ERC20 priced lock as well
-    const locks = await deployLocks(unlock, accounts[0])
-    lock = locks.FIRST
+    lock = await deployLock()
     ;({ tokenId } = await purchaseKey(lock, keyOwner))
   })
 
@@ -46,7 +39,7 @@ contract('Lock / transferFee', (accounts) => {
     })
 
     it('estimates the transfer fee, which is 5% of remaining duration or less', async () => {
-      const nowBefore = (await web3.eth.getBlock('latest')).timestamp
+      const { timestamp: nowBefore } = await ethers.provider.getBlock('latest')
       fee = new BigNumber(await lock.getTransferFee(tokenId, 0))
       // Mine a transaction in order to ensure the block.timestamp has updated
       await purchaseKey(lock, accounts[8])

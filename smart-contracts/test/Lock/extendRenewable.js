@@ -1,27 +1,21 @@
 const {
+  deployLock,
   deployERC20,
   reverts,
   purchaseKey,
   ADDRESS_ZERO,
 } = require('../helpers')
-const BigNumber = require('bignumber.js')
 const { time } = require('@openzeppelin/test-helpers')
-const { assert } = require('chai')
-const deployLocks = require('../helpers/deployLocks')
-const getContractInstance = require('../helpers/truffle-artifacts')
+const { ethers } = require('hardhat')
 
-const Unlock = artifacts.require('Unlock.sol')
+const keyPrice = ethers.utils.parseUnits('0.01', 'ether')
+const newPrice = ethers.utils.parseUnits('0.011', 'ether')
+const totalPrice = keyPrice.mul(10).toString()
+const someDai = ethers.utils.parseUnits('100', 'ether')
 
-let unlock
-let locks
 let dai
-
-const keyPrice = new BigNumber(web3.utils.toWei('0.01', 'ether'))
-const newPrice = web3.utils.toWei('0.011', 'ether')
-const totalPrice = keyPrice.times(10)
-const someDai = new BigNumber(web3.utils.toWei('100', 'ether'))
-
 let lock
+
 contract('Lock / Extend with recurring memberships', (accounts) => {
   const lockOwner = accounts[0]
   const keyOwner = accounts[1]
@@ -35,9 +29,7 @@ contract('Lock / Extend with recurring memberships', (accounts) => {
       from: lockOwner,
     })
 
-    unlock = await getContractInstance(Unlock)
-    locks = await deployLocks(unlock, lockOwner, dai.address)
-    lock = locks.ERC20
+    lock = await deployLock({ tokenAddress: dai.address })
     await lock.setMaxKeysPerAddress(10)
 
     // set ERC20 approval for entire scope
@@ -86,10 +78,14 @@ contract('Lock / Extend with recurring memberships', (accounts) => {
         await lock.renewMembershipFor(tokenId, ADDRESS_ZERO, {
           from: keyOwner,
         })
+
         const tsAfter = await lock.keyExpirationTimestampFor(tokenId)
+        const tsExpected = newExpirationTs.add(await lock.expirationDuration())
+
         assert.equal(
-          newExpirationTs.add(await lock.expirationDuration()).toString(),
-          tsAfter.toString()
+          // assert results for +/- 2 sec
+          tsAfter.toNumber() - tsExpected.toNumber() <= 2,
+          true
         )
       })
     })
@@ -119,9 +115,12 @@ contract('Lock / Extend with recurring memberships', (accounts) => {
           from: keyOwner,
         })
         const tsAfter = await lock.keyExpirationTimestampFor(tokenId)
+        const tsExpected = newExpirationTs.add(await lock.expirationDuration())
+
         assert.equal(
-          newExpirationTs.add(await lock.expirationDuration()).toString(),
-          tsAfter.toString()
+          // assert results for +/- 2 sec
+          tsAfter.toNumber() - tsExpected.toNumber() <= 2,
+          true
         )
       })
     })

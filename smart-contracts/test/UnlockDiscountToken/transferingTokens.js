@@ -3,14 +3,15 @@
 
 const BigNumber = require('bignumber.js')
 const { time } = require('@openzeppelin/test-helpers')
-const { ethers, upgrades, network } = require('hardhat')
-const deployLocks = require('../helpers/deployLocks')
-const { ADDRESS_ZERO } = require('../helpers/constants')
-const { createExchange } = require('../helpers')
+const { ethers, network } = require('hardhat')
+const {
+  deployContracts,
+  deployLock,
+  ADDRESS_ZERO,
+  createExchange,
+} = require('../helpers')
 
-const Unlock = artifacts.require('Unlock.sol')
 const UnlockDiscountToken = artifacts.require('UnlockDiscountTokenV3.sol')
-const PublicLock = artifacts.require('PublicLock')
 
 let unlock
 let udt
@@ -22,39 +23,15 @@ const describeOrSkip = process.env.IS_COVERAGE ? describe.skip : describe
 const estimateGas = 252166 * 2
 
 contract('UnlockDiscountToken (l2/sidechain) / granting Tokens', (accounts) => {
-  const [lockOwner, protocolOwner, minter, referrer, keyBuyer] = accounts
+  const [protocolOwner, minter, referrer, keyBuyer] = accounts
   let rate
 
   before(async () => {
-    const UnlockEthers = await ethers.getContractFactory('Unlock')
-    const proxyUnlock = await upgrades.deployProxy(
-      UnlockEthers,
-      [protocolOwner],
-      {
-        kind: 'transparent',
-        initializer: 'initialize(address)',
-      }
-    )
-    await proxyUnlock.deployed()
-    unlock = await Unlock.at(proxyUnlock.address)
+    ;({ unlock, udt } = await deployContracts())
+    // parse for truffle
+    udt = await UnlockDiscountToken.at(udt.address)
 
-    const lockTemplate = await PublicLock.new()
-    const publicLockLatestVersion = await unlock.publicLockLatestVersion()
-    await unlock.addLockTemplate(
-      lockTemplate.address,
-      publicLockLatestVersion + 1,
-      { from: protocolOwner }
-    )
-
-    const UDTEthers = await ethers.getContractFactory('UnlockDiscountTokenV3')
-    const proxyUDT = await upgrades.deployProxy(UDTEthers, [minter], {
-      kind: 'transparent',
-      initializer: 'initialize(address)',
-    })
-    await proxyUDT.deployed()
-    udt = await UnlockDiscountToken.at(proxyUDT.address)
-
-    lock = (await deployLocks(unlock, lockOwner)).FIRST
+    lock = await deployLock({ unlock })
 
     // Deploy the exchange
     const { oracle, weth } = await createExchange({
@@ -92,14 +69,18 @@ contract('UnlockDiscountToken (l2/sidechain) / granting Tokens', (accounts) => {
 
     rate = await oracle.consult(
       udt.address,
-      web3.utils.toWei('1', 'ether'),
+      ethers.utils.parseUnits('1', 'ether'),
       weth.address
     )
 
     // Mint another 1000000
-    await udt.mint(unlock.address, web3.utils.toWei('1000000', 'ether'), {
-      from: minter,
-    })
+    await udt.mint(
+      unlock.address,
+      ethers.utils.parseUnits('1000000', 'ether'),
+      {
+        from: minter,
+      }
+    )
   })
 
   it('exchange rate is > 0', async () => {
@@ -134,7 +115,7 @@ contract('UnlockDiscountToken (l2/sidechain) / granting Tokens', (accounts) => {
 
     before(async () => {
       // Let's set GDP to be very low (1 wei) so that we know that growth of supply is cap by gas
-      await unlock.resetTrackedValue(web3.utils.toWei('1', 'wei'), 0, {
+      await unlock.resetTrackedValue(ethers.utils.parseUnits('1', 'wei'), 0, {
         from: protocolOwner,
       })
       const { blockNumber } = await lock.purchase(
@@ -194,9 +175,13 @@ contract('UnlockDiscountToken (l2/sidechain) / granting Tokens', (accounts) => {
       // Total value exchanged = 1M USD
       // Key purchase 0.01 ETH = 20 USD
       // user earns 10UDT or
-      await unlock.resetTrackedValue(web3.utils.toWei('500', 'ether'), 0, {
-        from: protocolOwner,
-      })
+      await unlock.resetTrackedValue(
+        ethers.utils.parseUnits('500', 'ether'),
+        0,
+        {
+          from: protocolOwner,
+        }
+      )
 
       const baseFeePerGas = 1000000000 // in gwei
       await network.provider.send('hardhat_setNextBlockBaseFeePerGas', [
