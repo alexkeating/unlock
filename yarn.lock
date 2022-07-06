@@ -12101,7 +12101,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@superfluid-finance/sdk-core@npm:^0.4.2":
+"@superfluid-finance/sdk-core@npm:0.4.2":
   version: 0.4.2
   resolution: "@superfluid-finance/sdk-core@npm:0.4.2"
   dependencies:
@@ -51424,7 +51424,7 @@ typescript@^3.8.3:
   resolution: "unlock@workspace:."
   dependencies:
     "@babel/core": 7.18.2
-    "@superfluid-finance/sdk-core": ^0.4.2
+    "@superfluid-finance/sdk-core": 0.4.2
     "@typescript-eslint/eslint-plugin": 5.21.0
     "@typescript-eslint/parser": 5.21.0
     babel-eslint: 10.1.0
